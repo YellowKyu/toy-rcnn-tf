@@ -78,10 +78,10 @@ class TensorBoardLogger(object):
 
     def pred_post_process(self, bboxes, scores):
         # ratio to xyxy coordinate
-        confident_pred_bbox, confident_pred_score = self.decode_ratio_xyxy(bboxes, scores)
+        # confident_pred_bbox, confident_pred_score = self.decode_ratio_xyxy(bboxes, scores)
 
         # tlbr to xyxy coordinate
-        # confident_pred_bbox, confident_pred_score = self.decode_tlbr(bboxes, scores, 0.5)
+        confident_pred_bbox, confident_pred_score = self.decode_tlbr(bboxes, scores, 0.5)
 
         # filter overlapping bboxes with nms
         keep_idx = self.nms(confident_pred_bbox, confident_pred_score, 0.1)
