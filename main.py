@@ -8,6 +8,9 @@ from model import RCNNModel
 import loss as loss_lib
 from tqdm import tqdm
 
+# tf.compat.v1.disable_eager_execution()
+
+
 # generate and pre-process dummy data
 dm = DataManager()
 train_x, train_y, train_cat, train_mask, train_mask_y, test_x, test_y, test_cat, test_mask, test_mask_y = dm.gen_toy_detection_datasets(
@@ -24,13 +27,13 @@ test_x = test_x / 255.0
 
 all_train_mask = np.concatenate([train_mask_y, train_mask], axis=-1)
 
+model = RCNNModel()
+
 # logs and callback
 logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
-tensorboard_logger = TensorBoardLogger(logdir + '/train_loss', test_x, test_y)
+tensorboard_logger = TensorBoardLogger(model, logdir + '/train_loss', test_x, test_y)
 callbacks = [tensorboard_callback, tensorboard_logger]
-
-model = RCNNModel()
 
 
 def remove_none_grad(grads, var_list):
@@ -56,6 +59,7 @@ train_bb_loss_results = []
 for epoch in range(num_epoch):
     epoch_d_loss = []
     epoch_bb_loss = []
+    tf.summary.trace_on(graph=True)
 
     for x, obj_y, bb_y in tqdm(zip(train_x, train_mask, all_train_mask), total=train_x.shape[0]):
         batch_x = np.expand_dims(x, axis=0)
@@ -69,4 +73,13 @@ for epoch in range(num_epoch):
 
     train_d_loss_results.append(sum(epoch_d_loss) / len(epoch_d_loss))
     train_bb_loss_results.append(sum(epoch_bb_loss) / len(epoch_bb_loss))
-    print("Epoch {:03d}: d_loss: {:.3f}, b_loss: {:.3f}".format(epoch, train_d_loss_results[-1], train_bb_loss_results[-1]))
+    tf.summary.trace_export(
+        name="my_func_trace",
+        step=epoch,
+        profiler_outdir=logdir)
+    tensorboard_logger.on_epoch_end(epoch, {
+        "objectness_loss": train_d_loss_results[-1],
+        "bboxes_loss": train_bb_loss_results[-1]
+    })
+    print("Epoch {:03d}: d_loss: {:.3f}, b_loss: {:.3f}".format(epoch, train_d_loss_results[-1],
+                                                                train_bb_loss_results[-1]))

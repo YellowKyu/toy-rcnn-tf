@@ -3,10 +3,10 @@ import numpy as np
 import cv2
 import random
 
-class TensorBoardLogger(tf.keras.callbacks.Callback):
+class TensorBoardLogger(object):
 
-    def __init__(self, logdir, test_x, test_y):
-        super().__init__()
+    def __init__(self, model, logdir, test_x, test_y):
+        # super().__init__()
         self.writer = tf.summary.create_file_writer(logdir)
         self.writer.set_as_default()
         self.epoch = 0
@@ -14,6 +14,7 @@ class TensorBoardLogger(tf.keras.callbacks.Callback):
         self.test_y = test_y
         self.img_h = test_x.shape[1]
         self.img_w = test_x.shape[2]
+        self.model = model
 
     def nms(self, bboxes, scores, thresh=0.5):
         x1 = bboxes[:, 0]
@@ -93,7 +94,6 @@ class TensorBoardLogger(tf.keras.callbacks.Callback):
         if logs is not None:
             tf.summary.scalar("dice loss (epoch)", logs['objectness_loss'], step=epoch)
             tf.summary.scalar("mae loss (epoch)", logs['bboxes_loss'], step=epoch)
-            self.writer.flush()
         test_idx = random.randint(0, len(self.test_y) - 1)
 
         test_input = np.expand_dims(self.test_x[test_idx], axis=0)
@@ -103,14 +103,16 @@ class TensorBoardLogger(tf.keras.callbacks.Callback):
         for box in test_input_y:
             test_input_bbox[0] = cv2.rectangle(test_input_bbox[0], (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 1)
 
-        prediction = self.model.predict(test_input)
-        print(prediction)
-        # final_bboxes, final_scores = self.pred_post_process(prediction[1], prediction[0])
-        #
-        # pred_image = cv2.cvtColor(prediction[0][0], cv2.COLOR_GRAY2RGB)
-        # for box in final_bboxes:
-        #     pred_image = cv2.rectangle(pred_image, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 1)
-        #
-        # results = cv2.hconcat([test_input_bbox[0], pred_image])
-        # results = np.expand_dims(results, axis=0)
-        # tf.summary.image("test_input_output", results, step=epoch)
+        prediction = self.model(test_input, training=False)
+        # print(prediction)
+
+        final_bboxes, final_scores = self.pred_post_process(prediction[1].numpy(), prediction[0].numpy())
+
+        pred_image = cv2.cvtColor(prediction[0].numpy()[0], cv2.COLOR_GRAY2RGB)
+        for box in final_bboxes:
+            pred_image = cv2.rectangle(pred_image, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), (0, 255, 0), 1)
+
+        results = cv2.hconcat([test_input_bbox[0], pred_image])
+        results = np.expand_dims(results, axis=0)
+        tf.summary.image("test_input_output", results, step=epoch)
+        self.writer.flush()

@@ -10,7 +10,7 @@ def dice_loss(y_true, y_pred):
     return loss
 
 
-def masked_mae_loss(y_true, y_pred):
+def masked_mae_loss(y_true, y_pred, alpha=0.1):
     # split bbox and objectness mask
     bbox_mask = y_true[:, :, :, 0:-1]
     objectness_mask = K.expand_dims(y_true[:, :, :, -1], axis=-1)
@@ -27,7 +27,7 @@ def masked_mae_loss(y_true, y_pred):
     # loss over gt region inside gt bounding boxes
     total_mean_diff_masked = K.sum(mean_diff_masked)
     new_loss = total_mean_diff_masked / total_positive
-    return new_loss
+    return new_loss * alpha
 
 def l1_loss(A, B):
     rshpA = K.expand_dims(A, axis=1)
